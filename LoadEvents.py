@@ -6,9 +6,6 @@ Address, city, date, description, location (as lat/lon), name, state, and zipcod
 Each of the above fields contains the content from the original JSON event and the entire original payload is lz4 compressed and base64 encoded
 into the 'content' field.
 
-A sample query:
-curl "http://search-hillaryevents-toacvf6ghscgs4hixl2mzyoihq.us-east-1.cloudsearch.amazonaws.com/2013-01-01/search?q='Voter+Registration+Dillwyn+Virginia'”
-
 Submissions to CloudSearch are batched into payloads of roughly 5M, as the docs say that is the optimal size.
 
 This script is intended to be run several times a day to pick up new events and event changes. Cloudsearch will return the newest version
@@ -25,11 +22,15 @@ import boto3
 import re
 import commands
 import dateutil.parser
+import datetime
+import urllib
 
 output_file = False # set this to True to have this program generate a /tmp/hillevents.json file that can be uploaded to AWS for index analysis
 
 end = False
-url = "https://www.hillaryclinton.com/api/events/events?perPage=100&status=confirmed&visibility=public&page={page}"
+now = datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+earliestTimeQueryParam = urllib.urlencode({"earliestTime":now})
+url = "https://www.hillaryclinton.com/api/events/events?perPage=100&status=confirmed&" + earliestTimeQueryParam + "&visibility=public&page={page}"
 page_num = 1
 cloudsearch = client = boto3.client('cloudsearch',
                                     endpoint_url="http://doc-hillaryevents-toacvf6ghscgs4hixl2mzyoihq.us-east-1.cloudsearch.amazonaws.com")
@@ -38,6 +39,7 @@ cloudsearchdomain = boto3.client('cloudsearchdomain',
 
 cloudsearch_payload = []
 cloudsearch_payload_count = 0
+
 
 RE_XML_ILLEGAL = u'([\u0000-\u0008\u000b-\u000c\u000e-\u001f\ufffe-\uffff])' + \
                  u'|' + \
@@ -78,7 +80,6 @@ while(not end):
         responseJson = response.json()
         total_pages = responseJson['meta']['totalPages']
 
-        print total_pages
         if(page_num >= total_pages):
             end = True
 
