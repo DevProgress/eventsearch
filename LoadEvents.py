@@ -39,6 +39,7 @@ cloudsearchdomain = boto3.client('cloudsearchdomain',
 
 cloudsearch_payload = []
 cloudsearch_payload_count = 0
+s3 = boto3.resource('s3')
 
 
 RE_XML_ILLEGAL = u'([\u0000-\u0008\u000b-\u000c\u000e-\u001f\ufffe-\uffff])' + \
@@ -54,6 +55,7 @@ def clean(string):
     return rm_invalid_chars.sub("?", string)
 
 max_attempts = 10
+
 
 while(not end):
 
@@ -130,9 +132,11 @@ while(not end):
                 fields['state'] = location['state']
             fields['date'] = event['startDate']
 
-            fields['content'] = base64.b64encode(lz4.dumps(json.dumps(event)))
+            fields['content'] = "http://hillaryevents.s3.amazonaws.com/" + payload['id'] + ".json"
 
-            #print "sizeof content compressed:" + str(sys.getsizeof(fields['content']))
+            body = json.dumps(event)
+
+            s3response = s3.Bucket('hillaryevents').put_object(ACL='public-read', Key=payload['id'] + ".json", Body=body)
 
             content_size = sys.getsizeof(fields['content'])
             if(content_size > 4096):
